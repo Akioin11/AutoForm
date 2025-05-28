@@ -11,15 +11,17 @@ class AutoFormGenerator {
         this.generateBtn = document.getElementById('generateBtn');
         this.btnText = this.generateBtn.querySelector('.btn-text');
         this.spinner = this.generateBtn.querySelector('.spinner');
-        
         this.previewPane = document.getElementById('previewPane');
         this.codePane = document.getElementById('codePane');
         this.generatedCode = document.getElementById('generatedCode');
-        
         this.previewBtn = document.getElementById('previewBtn');
         this.codeBtn = document.getElementById('codeBtn');
-        this.copyCodeBtn = document.getElementById('copyCodeBtn');
         this.downloadBtn = document.getElementById('downloadBtn');
+        this.fullscreenBtn = document.getElementById('fullscreenBtn');
+        this.fullscreenModal = document.getElementById('fullscreenModal');
+        this.fullscreenPreview = document.getElementById('fullscreenPreview');
+        this.closeFullscreenBtn = document.getElementById('closeFullscreenBtn');
+        this.formSummary = document.getElementById('formSummary');
     }
 
     bindEvents() {
@@ -29,11 +31,16 @@ class AutoFormGenerator {
                 this.generateForm();
             }
         });
-
         this.previewBtn.addEventListener('click', () => this.showPreview());
         this.codeBtn.addEventListener('click', () => this.showCode());
-        this.copyCodeBtn.addEventListener('click', () => this.copyCode());
         this.downloadBtn.addEventListener('click', () => this.downloadForm());
+        this.fullscreenBtn.addEventListener('click', () => this.openFullscreen());
+        this.closeFullscreenBtn.addEventListener('click', () => this.closeFullscreen());
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.fullscreenModal.classList.contains('active')) {
+                this.closeFullscreen();
+            }
+        });
     }
 
     async generateForm() {
@@ -59,12 +66,36 @@ class AutoFormGenerator {
             this.currentFormCSS = data.css;
             this.displayForm(data.html, data.css);
             this.enableControls();
+            this.updateFormSummary(prompt, data.html);
         } catch (error) {
             console.error('Error generating form:', error);
             alert('Error generating form: ' + error.message);
         } finally {
             this.setLoading(false);
         }
+    }
+
+    updateFormSummary(prompt, html) {
+        // Try to extract a summary from the prompt and/or generated HTML fields
+        let summary = '';
+        if (prompt) {
+            summary = prompt.charAt(0).toUpperCase() + prompt.slice(1);
+        }
+        // Optionally, extract field names from HTML
+        const fieldMatches = html.match(/<label[^>]*>(.*?)<\/label>|placeholder=["']([^"']+)["']/gi);
+        if (fieldMatches && fieldMatches.length > 0) {
+            const fields = fieldMatches.map(m => {
+                const label = m.match(/<label[^>]*>(.*?)<\/label>/i);
+                if (label) return label[1];
+                const ph = m.match(/placeholder=["']([^"']+)["']/i);
+                if (ph) return ph[1];
+                return null;
+            }).filter(Boolean);
+            if (fields.length > 0) {
+                summary += '<br><span style="color:#888;font-size:0.97em">Fields: ' + fields.join(', ') + '</span>';
+            }
+        }
+        this.formSummary.innerHTML = summary;
     }
 
     setLoading(loading) {
@@ -79,7 +110,6 @@ class AutoFormGenerator {
     }
 
     displayForm(formHTML, formCSS) {
-        // Ensure HTML is wrapped in .autoform-generated-form
         const cleanHTML = this.cleanFormHTML(formHTML);
         const wrappedHTML = this.ensureAutoformWrapper(cleanHTML);
         this.previewPane.innerHTML = wrappedHTML;
@@ -92,11 +122,22 @@ class AutoFormGenerator {
             style.textContent = formCSS;
             document.head.appendChild(style);
         }
-        // Show both HTML and CSS in code view
+        // Sync fullscreen preview content and style
+        if (this.fullscreenPreview) {
+            this.fullscreenPreview.innerHTML = wrappedHTML;
+            // Remove any previous style in fullscreen
+            const prevFSStyle = this.fullscreenPreview.querySelector('style#autoform-generated-style');
+            if (prevFSStyle) prevFSStyle.remove();
+            if (formCSS && formCSS.trim()) {
+                const style = document.createElement('style');
+                style.id = 'autoform-generated-style';
+                style.textContent = formCSS;
+                this.fullscreenPreview.appendChild(style);
+            }
+        }
         this.generatedCode.textContent =
             `<!-- HTML -->\n` + wrappedHTML +
             `\n\n/* CSS */\n` + (formCSS || '');
-        // Show preview by default
         this.showPreview();
     }
 
@@ -134,28 +175,27 @@ class AutoFormGenerator {
     }
 
     enableControls() {
-        this.copyCodeBtn.disabled = false;
         this.downloadBtn.disabled = false;
     }
 
-    async copyCode() {
-        try {
-            const code =
-                `<!-- HTML -->\n` + this.cleanFormHTML(this.currentFormHTML) +
-                `\n\n/* CSS */\n` + (this.currentFormCSS || '');
-            await navigator.clipboard.writeText(code);
-            // Temporary feedback
-            const originalText = this.copyCodeBtn.textContent;
-            this.copyCodeBtn.textContent = 'Copied!';
-            this.copyCodeBtn.style.background = '#28a745';
-            setTimeout(() => {
-                this.copyCodeBtn.textContent = originalText;
-                this.copyCodeBtn.style.background = '';
-            }, 2000);
-        } catch (error) {
-            console.error('Failed to copy:', error);
-            alert('Failed to copy to clipboard');
+    openFullscreen() {
+        if (!this.fullscreenModal) return;
+        this.fullscreenModal.classList.add('active');
+        // Sync content in case of late open
+        this.fullscreenPreview.innerHTML = this.previewPane.innerHTML;
+        // Also inject style
+        const prevFSStyle = this.fullscreenPreview.querySelector('style#autoform-generated-style');
+        if (prevFSStyle) prevFSStyle.remove();
+        if (this.currentFormCSS && this.currentFormCSS.trim()) {
+            const style = document.createElement('style');
+            style.id = 'autoform-generated-style';
+            style.textContent = this.currentFormCSS;
+            this.fullscreenPreview.appendChild(style);
         }
+    }
+    closeFullscreen() {
+        if (!this.fullscreenModal) return;
+        this.fullscreenModal.classList.remove('active');
     }
 
     async downloadForm() {
