@@ -3,6 +3,7 @@ class AutoFormGenerator {
         this.initializeElements();
         this.bindEvents();
         this.currentFormHTML = '';
+        this.currentFormCSS = '';
     }
 
     initializeElements() {
@@ -37,14 +38,11 @@ class AutoFormGenerator {
 
     async generateForm() {
         const prompt = this.promptInput.value.trim();
-        
         if (!prompt) {
             alert('Please enter a description for your form');
             return;
         }
-
         this.setLoading(true);
-
         try {
             const response = await fetch('/api/generate-form', {
                 method: 'POST',
@@ -53,17 +51,14 @@ class AutoFormGenerator {
                 },
                 body: JSON.stringify({ prompt })
             });
-
             const data = await response.json();
-
             if (!response.ok) {
                 throw new Error(data.error || 'Failed to generate form');
             }
-
-            this.currentFormHTML = data.form;
-            this.displayForm(data.form);
+            this.currentFormHTML = data.html;
+            this.currentFormCSS = data.css;
+            this.displayForm(data.html, data.css);
             this.enableControls();
-
         } catch (error) {
             console.error('Error generating form:', error);
             alert('Error generating form: ' + error.message);
@@ -83,14 +78,33 @@ class AutoFormGenerator {
         }
     }
 
-    displayForm(formHTML) {
-        // Clean the HTML and display in preview
+    displayForm(formHTML, formCSS) {
+        // Ensure HTML is wrapped in .autoform-generated-form
         const cleanHTML = this.cleanFormHTML(formHTML);
-        this.previewPane.innerHTML = cleanHTML;
-        this.generatedCode.textContent = cleanHTML;
-        
+        const wrappedHTML = this.ensureAutoformWrapper(cleanHTML);
+        this.previewPane.innerHTML = wrappedHTML;
+        // Remove any previously injected style
+        const prevStyle = document.getElementById('autoform-generated-style');
+        if (prevStyle) prevStyle.remove();
+        if (formCSS && formCSS.trim()) {
+            const style = document.createElement('style');
+            style.id = 'autoform-generated-style';
+            style.textContent = formCSS;
+            document.head.appendChild(style);
+        }
+        // Show both HTML and CSS in code view
+        this.generatedCode.textContent =
+            `<!-- HTML -->\n` + wrappedHTML +
+            `\n\n/* CSS */\n` + (formCSS || '');
         // Show preview by default
         this.showPreview();
+    }
+
+    ensureAutoformWrapper(html) {
+        // If already wrapped, return as is
+        if (/class=["']?autoform-generated-form["']?/i.test(html)) return html;
+        // Otherwise, wrap it
+        return `<div class=\"autoform-generated-form\">${html}</div>`;
     }
 
     cleanFormHTML(html) {
@@ -126,49 +140,68 @@ class AutoFormGenerator {
 
     async copyCode() {
         try {
-            await navigator.clipboard.writeText(this.currentFormHTML);
-            
+            const code =
+                `<!-- HTML -->\n` + this.cleanFormHTML(this.currentFormHTML) +
+                `\n\n/* CSS */\n` + (this.currentFormCSS || '');
+            await navigator.clipboard.writeText(code);
             // Temporary feedback
             const originalText = this.copyCodeBtn.textContent;
             this.copyCodeBtn.textContent = 'Copied!';
             this.copyCodeBtn.style.background = '#28a745';
-            
             setTimeout(() => {
                 this.copyCodeBtn.textContent = originalText;
                 this.copyCodeBtn.style.background = '';
             }, 2000);
-            
         } catch (error) {
             console.error('Failed to copy:', error);
             alert('Failed to copy to clipboard');
         }
     }
 
-    downloadForm() {
-        const fullHTML = this.createCompleteHTMLDocument(this.currentFormHTML);
-        const blob = new Blob([fullHTML], { type: 'text/html' });
+    async downloadForm() {
+        // Use JSZip to create a zip with HTML and CSS
+        if (!window.JSZip) {
+            await this.loadJSZip();
+        }
+        const zip = new window.JSZip();
+        const htmlContent = this.createCompleteHTMLDocument(this.currentFormHTML, this.currentFormCSS);
+        zip.file('index.html', htmlContent);
+        zip.file('style.css', this.currentFormCSS || '');
+        const blob = await zip.generateAsync({ type: 'blob' });
         const url = URL.createObjectURL(blob);
-        
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'generated-form.html';
+        a.download = 'autoform.zip';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
 
-    createCompleteHTMLDocument(formHTML) {
+    async loadJSZip() {
+        // Dynamically load JSZip from CDN if not present
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    createCompleteHTMLDocument(formHTML, formCSS) {
+        // Always wrap HTML in .autoform-generated-form
+        const wrappedHTML = this.ensureAutoformWrapper(this.cleanFormHTML(formHTML));
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generated Form</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    ${formHTML}
-    
+    ${wrappedHTML}
     <script>
         // Basic form validation and submission handling
         document.addEventListener('DOMContentLoaded', function() {

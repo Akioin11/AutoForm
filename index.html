@@ -34,9 +34,9 @@
                 <div class="output-header">
                     <h2 class="output-title">Generated Form</h2>
                     <div class="output-controls">
-                        <button id="copyCodeBtn" class="control-btn" disabled>Copy HTML</button>
                         <button id="downloadBtn" class="control-btn" disabled>Download</button>
                         <button id="previewBtn" class="control-btn active">Preview</button>
+                        <button id="fullscreenBtn" class="control-btn" title="Fullscreen Preview">Fullscreen</button>
                         <button id="codeBtn" class="control-btn">Code</button>
                     </div>
                 </div>
@@ -53,6 +53,12 @@
                             <p>Your generated form will appear here</p>
                         </div>
                     </div>
+                    <div id="fullscreenModal" class="fullscreen-modal">
+                        <div class="fullscreen-content">
+                            <button id="closeFullscreenBtn" class="close-fullscreen">×</button>
+                            <div id="fullscreenPreview"></div>
+                        </div>
+                    </div>
                     <div id="codePane" class="output-pane">
                         <pre><code id="generatedCode" class="code-block"></code></pre>
                     </div>
@@ -61,7 +67,7 @@
         </main>
 
         <footer class="footer">
-            <p>Powered by Gemini AI</p>
+            <p>Akshat Sharma</p>
         </footer>
     </div>
 

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generated Form</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="autoform-generated-form">
+  <form>
+    <label for="name">Name:</label><br>
+    <input type="text" id="name" name="name"><br><br>
+    <input type="submit" value="Submit">
+  </form>
+</div>
+    <script>
+        // Basic form validation and submission handling
+        document.addEventListener('DOMContentLoaded', function() {
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(form);
+                    const data = Object.fromEntries(formData.entries());
+                    console.log('Form submitted:', data);
+                    alert('Form submitted! Check console for data.');
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
+const fs = require('fs');
 
 const { GoogleGenAI } = require('@google/genai');
 
@@ -11,6 +12,12 @@ const PORT = process.env.PORT || 3000;
 // Initialize Gemini AI
 console.log('Gemini API Key loaded:', process.env.GEMINI_API_KEY ? 'Yes (length: ' + process.env.GEMINI_API_KEY.length + ')' : 'No');
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+// Read template HTML and CSS
+const template1Html = fs.readFileSync(path.join(__dirname, 'templates', 'temp1.html'), 'utf8');
+const template1Css = fs.readFileSync(path.join(__dirname, 'templates', 'temp1.css'), 'utf8');
+const template2Html = fs.readFileSync(path.join(__dirname, 'templates', 'temp2.html'), 'utf8');
+const template2Css = fs.readFileSync(path.join(__dirname, 'templates', 'temp2.css'), 'utf8');
 
 // Middleware
 app.use(cors());
@@ -159,40 +166,55 @@ app.post('/api/generate-form', async (req, res) => {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
-    const systemPrompt = `
-You are a web form generator. Based on the user's request, generate a complete HTML form using one of the following templates as a base. Adapt the template as needed to fit the requested fields and requirements.
+    const systemPrompt = [
+      'You are a web form generator. Based on the user\'s request, generate a complete HTML form and a corresponding CSS stylesheet.',
+      '',
+      'Here are two example form templates (HTML and CSS):',
+      '---',
+      'TEMPLATE 1 HTML:',
+      '```html\n' + template1Html + '\n```',
+      'TEMPLATE 1 CSS:',
+      '```css\n' + template1Css + '\n```',
+      '---',
+      'TEMPLATE 2 HTML:',
+      '```html\n' + template2Html + '\n```',
+      'TEMPLATE 2 CSS:',
+      '```css\n' + template2Css + '\n```',
+      '---',
+      '',
+      'Instructions:',
+      '- When generating a new form, use or adapt the structure and style of the most relevant template above.',
+      '- Always match the visual quality and style of the templates.',
+      '- Update the fields as needed for the user\'s request.',
+      '- The form HTML must be wrapped in a container with the class "autoform-generated-form".',
+      '- All CSS selectors must be scoped to ".autoform-generated-form" (e.g., ".autoform-generated-form input { ... }").',
+      '- Do NOT use any global selectors (no "body", "input", "button", "*", etc.).',
+      '- Output the HTML and CSS separately. First output the HTML in a markdown code block labeled html, then output the CSS in a markdown code block labeled css.',
+      '- Do not use external CSS frameworks.',
+      '- Return only the HTML and CSS code, no explanations.',
+      '',
+      `User request: ${prompt}`,
+      '',
+      'Generate the HTML and CSS:'
+    ].join('\n');
 
-Template 1:
-${template1}
-
-Template 2:
-${template2}
-
-Requirements:
-- Use/adapt one of the provided templates for design and structure.
-- Only generate the HTML form element and the necessary CSS (inline in a <style> tag).
-- Use semantic HTML5 form elements.
-- Include proper form validation attributes.
-- Make the form responsive and accessible.
-- Include proper labels and placeholders.
-- Add a submit button with appropriate styling.
-- Do not use any external CSS frameworks like Bootstrap or Tailwind.
-- Return only the HTML and CSS code, no explanations.
-
-User request: ${prompt}
-
-Generate a complete, styled HTML form:
-`;
     const result = await ai.models.generateContent({
       model: "gemini-2.0-flash",
       contents: systemPrompt
     });
-    const generatedForm = result.text;
+    const responseText = result.text;
+
+    // Extract HTML and CSS code blocks from Gemini's response
+    const htmlBlock = responseText.match(/```html([\s\S]*?)```/i);
+    const cssBlock = responseText.match(/```css([\s\S]*?)```/i);
+    const generatedHtml = htmlBlock ? htmlBlock[1].trim() : '';
+    const generatedCss = cssBlock ? cssBlock[1].trim() : '';
 
     res.json({ 
       success: true, 
-      form: generatedForm,
-      prompt: prompt 
+      html: generatedHtml,
+      css: generatedCss,
+      prompt 
     });
 
   } catch (error) {
