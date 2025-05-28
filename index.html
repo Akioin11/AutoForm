@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoForm - AI Form Generator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1 class="title">AutoForm</h1>
+            <p class="subtitle">Generate beautiful forms with AI</p>
+        </header>
+
+        <main class="main">
+            <div class="input-section">
+                <div class="input-group">
+                    <label for="promptInput" class="label">Describe the form you want to create:</label>
+                    <textarea 
+                        id="promptInput" 
+                        class="prompt-input" 
+                        placeholder="e.g., make a form for hotel booking with check-in date, check-out date, number of guests, room type, and special requests"
+                        rows="4"
+                    ></textarea>
+                </div>
+                <button id="generateBtn" class="generate-btn">
+                    <span class="btn-text">Generate Form</span>
+                    <div class="spinner hidden"></div>
+                </button>
+            </div>
+
+            <div class="output-section">
+                <div class="output-header">
+                    <h2 class="output-title">Generated Form</h2>
+                    <div class="output-controls">
+                        <button id="copyCodeBtn" class="control-btn" disabled>Copy HTML</button>
+                        <button id="downloadBtn" class="control-btn" disabled>Download</button>
+                        <button id="previewBtn" class="control-btn active">Preview</button>
+                        <button id="codeBtn" class="control-btn">Code</button>
+                    </div>
+                </div>
+                
+                <div class="output-container">
+                    <div id="previewPane" class="output-pane active">
+                        <div class="empty-state">
+                            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                <line x1="9" y1="9" x2="15" y2="9"/>
+                                <line x1="9" y1="13" x2="15" y2="13"/>
+                                <line x1="9" y1="17" x2="13" y2="17"/>
+                            </svg>
+                            <p>Your generated form will appear here</p>
+                        </div>
+                    </div>
+                    <div id="codePane" class="output-pane">
+                        <pre><code id="generatedCode" class="code-block"></code></pre>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>Powered by Gemini AI</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
