@@ -201,6 +201,8 @@ body {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
+    overflow-y: auto; /* allow scrolling for long forms */
+    max-height: 600px;
 }
 
 .output-pane.active {
@@ -208,54 +210,49 @@ body {
     pointer-events: auto;
 }
 
-.empty-state {
-    display: flex;
-    flex-direction: column;
+.fullscreen-modal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(30, 30, 30, 0.95);
     align-items: center;
     justify-content: center;
+}
+.fullscreen-modal.active {
+    display: flex;
+}
+.fullscreen-content {
+    background: #fff;
+    border-radius: 12px;
+    max-width: 90vw;
+    max-height: 90vh;
+    width: 100%;
     height: 100%;
-    color: #999;
-    text-align: center;
+    overflow: auto;
+    position: relative;
+    padding: 32px 16px 16px 16px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4);
 }
-
-.empty-icon {
-    width: 64px;
-    height: 64px;
-    margin-bottom: 16px;
-    opacity: 0.5;
+#fullscreenPreview {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
 }
-
-.code-block {
-    background: #f8f9fa;
-    border: 1px solid #e1e5e9;
-    border-radius: 8px;
-    padding: 20px;
-    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    min-height: 340px;
+.close-fullscreen {
+    position: absolute;
+    top: 10px;
+    right: 18px;
+    font-size: 2rem;
+    background: none;
+    border: none;
+    color: #333;
+    cursor: pointer;
+    z-index: 2;
 }
-
-/* Generated form styles override */
-#previewPane form {
-    max-width: none !important;
-    margin: 0 !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-}
-
-/* Footer */
-.footer {
-    text-align: center;
-    margin-top: 40px;
-    color: rgba(255,255,255,0.8);
-    font-size: 0.9rem;
-}
-
-/* Responsive design */
 @media (max-width: 768px) {
     .main {
         grid-template-columns: 1fr;
@@ -279,6 +276,10 @@ body {
     
     .output-controls {
         justify-content: center;
+    }
+    
+    .fullscreen-content {
+        padding: 12px 2px 2px 2px;
     }
 }
 
