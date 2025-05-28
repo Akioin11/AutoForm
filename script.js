@@ -8,6 +8,7 @@ class AutoFormGenerator {
 
     initializeElements() {
         this.promptInput = document.getElementById('promptInput');
+        this.promptForm = document.getElementById('promptForm');
         this.generateBtn = document.getElementById('generateBtn');
         this.btnText = this.generateBtn.querySelector('.btn-text');
         this.spinner = this.generateBtn.querySelector('.spinner');
@@ -22,10 +23,17 @@ class AutoFormGenerator {
         this.fullscreenPreview = document.getElementById('fullscreenPreview');
         this.closeFullscreenBtn = document.getElementById('closeFullscreenBtn');
         this.formSummary = document.getElementById('formSummary');
+        this.fieldList = document.getElementById('fieldList');
     }
 
     bindEvents() {
         this.generateBtn.addEventListener('click', () => this.generateForm());
+        if (this.promptForm) {
+            this.promptForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.generateForm();
+            });
+        }
         this.promptInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && e.ctrlKey) {
                 this.generateForm();
@@ -67,6 +75,7 @@ class AutoFormGenerator {
             this.displayForm(data.html, data.css);
             this.enableControls();
             this.updateFormSummary(prompt, data.html);
+            this.updateFieldList(data.html);
         } catch (error) {
             console.error('Error generating form:', error);
             alert('Error generating form: ' + error.message);
@@ -76,26 +85,30 @@ class AutoFormGenerator {
     }
 
     updateFormSummary(prompt, html) {
-        // Try to extract a summary from the prompt and/or generated HTML fields
+        // Try to extract a summary from the prompt
         let summary = '';
         if (prompt) {
             summary = prompt.charAt(0).toUpperCase() + prompt.slice(1);
         }
-        // Optionally, extract field names from HTML
+        this.formSummary.innerHTML = summary;
+    }
+
+    updateFieldList(html) {
+        // Extract field names from HTML
         const fieldMatches = html.match(/<label[^>]*>(.*?)<\/label>|placeholder=["']([^"']+)["']/gi);
+        let fields = [];
         if (fieldMatches && fieldMatches.length > 0) {
-            const fields = fieldMatches.map(m => {
+            fields = fieldMatches.map(m => {
                 const label = m.match(/<label[^>]*>(.*?)<\/label>/i);
                 if (label) return label[1];
                 const ph = m.match(/placeholder=["']([^"']+)["']/i);
                 if (ph) return ph[1];
                 return null;
             }).filter(Boolean);
-            if (fields.length > 0) {
-                summary += '<br><span style="color:#888;font-size:0.97em">Fields: ' + fields.join(', ') + '</span>';
-            }
         }
-        this.formSummary.innerHTML = summary;
+        this.fieldList.innerHTML = fields.length > 0
+            ? fields.map(f => `<li>${f}</li>`).join('')
+            : '<li style="color:#aaa">No fields detected</li>';
     }
 
     setLoading(loading) {

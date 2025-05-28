@@ -33,6 +33,7 @@ body {
     position: sticky;
     top: 0;
     z-index: 10;
+    gap: 18px;
 }
 
 .app-title {
@@ -45,6 +46,36 @@ body {
 .app-actions {
     display: flex;
     gap: 8px;
+}
+
+/* Prompt Bar */
+.prompt-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 600px;
+    max-width: 600px;
+    margin: 0 24px;
+}
+
+.prompt-input-bar {
+    flex: 1 1 400px;
+    min-width: 200px;
+    max-width: 420px;
+    padding: 10px 14px;
+    border: 1.5px solid #e0e3ea;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: #fafbfc;
+    transition: border-color 0.2s;
+    margin-right: 0;
+}
+
+.prompt-input-bar:focus {
+    outline: none;
+    border-color: #ff6d00;
+    background: #fff;
 }
 
 /* Header */
@@ -113,24 +144,20 @@ body {
     font-size: 1.1rem;
 }
 
-.prompt-input {
-    width: 100%;
-    padding: 12px;
-    border: 1.5px solid #e0e3ea;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-family: inherit;
-    resize: vertical;
-    background: #fafbfc;
-    margin-top: 8px;
-    margin-bottom: 0;
-    transition: border-color 0.2s;
-}
+/* Remove old prompt textarea styles from desc-panel */
+.desc-panel textarea, .desc-panel .prompt-input { display: none !important; }
 
-.prompt-input:focus {
-    outline: none;
-    border-color: #ff6d00;
-    background: #fff;
+.field-list {
+    margin: 0 0 0 8px;
+    padding: 0;
+    list-style: disc inside;
+    color: #444;
+    font-size: 0.98em;
+    line-height: 1.7;
+}
+.field-list li {
+    margin-bottom: 2px;
+    padding-left: 2px;
 }
 
 /* Button styles */

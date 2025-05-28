@@ -11,12 +11,21 @@
 <body>
     <div class="app-bar">
         <div class="app-title">AutoForm</div>
-        <div class="app-actions">
-            <button id="generateBtn" class="icon-btn" title="Generate">
+        <form id="promptForm" class="prompt-bar" autocomplete="off" onsubmit="return false;">
+            <input 
+                id="promptInput" 
+                class="prompt-input-bar" 
+                type="text"
+                placeholder="Describe the form you want to create..."
+                autocomplete="off"
+            />
+            <button id="generateBtn" class="icon-btn" title="Generate" type="submit">
                 <span class="material-icons">bolt</span>
                 <span class="btn-text">Generate</span>
                 <div class="spinner hidden"></div>
             </button>
+        </form>
+        <div class="app-actions">
             <button id="downloadBtn" class="icon-btn" title="Download" disabled>
                 <span class="material-icons">download</span>
             </button>
@@ -33,14 +42,10 @@
     </div>
     <main class="main-grid">
         <aside class="desc-panel">
-            <div class="desc-header">Form Description</div>
-            <div id="formSummary" class="desc-content">Describe the form you want to create:</div>
-            <textarea 
-                id="promptInput" 
-                class="prompt-input" 
-                placeholder="e.g., make a form for hotel booking with check-in date, check-out date, number of guests, room type, and special requests"
-                rows="4"
-            ></textarea>
+            <div class="desc-header">AI Explanation</div>
+            <div id="formSummary" class="desc-content">The AI will explain your generated form here.</div>
+            <div class="desc-header" style="margin-top:24px;">Fields</div>
+            <ul id="fieldList" class="field-list"></ul>
         </aside>
         <section class="output-section">
             <div class="output-container">
