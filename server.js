@@ -5,6 +5,7 @@ require('dotenv').config();
 const fs = require('fs');
 
 const { GoogleGenAI } = require('@google/genai');
+const { google } = require('googleapis');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -167,30 +168,16 @@ app.post('/api/generate-form', async (req, res) => {
     }
 
     const systemPrompt = [
-      'You are a web form generator. Based on the user\'s request, generate a complete HTML form and a corresponding CSS stylesheet.',
+      'You are a professional web form designer. Based on the user\'s request, generate a complete HTML form and a corresponding CSS stylesheet.',
       '',
-      'Here are two example form templates (HTML and CSS):',
-      '---',
-      'TEMPLATE 1 HTML:',
-      '```html\n' + template1Html + '\n```',
-      'TEMPLATE 1 CSS:',
-      '```css\n' + template1Css + '\n```',
-      '---',
-      'TEMPLATE 2 HTML:',
-      '```html\n' + template2Html + '\n```',
-      'TEMPLATE 2 CSS:',
-      '```css\n' + template2Css + '\n```',
-      '---',
-      '',
-      'Instructions:',
-      '- When generating a new form, use or adapt the structure and style of the most relevant template above.',
-      '- Always match the visual quality and style of the templates.',
-      '- Update the fields as needed for the user\'s request.',
+      'Requirements:',
+      '- The form must look modern, clean, and visually appealing, suitable for a dashboard or business web app.',
+      '- Use a material-inspired or dashboard style: subtle shadows, rounded corners, good spacing, and a neutral color palette (e.g., white, gray, blue, orange highlights).',
       '- The form HTML must be wrapped in a container with the class "autoform-generated-form".',
       '- All CSS selectors must be scoped to ".autoform-generated-form" (e.g., ".autoform-generated-form input { ... }").',
       '- Do NOT use any global selectors (no "body", "input", "button", "*", etc.).',
-      '- Output the HTML and CSS separately. First output the HTML in a markdown code block labeled html, then output the CSS in a markdown code block labeled css.',
       '- Do not use external CSS frameworks.',
+      '- Output the HTML and CSS separately. First output the HTML in a markdown code block labeled html, then output the CSS in a markdown code block labeled css.',
       '- Return only the HTML and CSS code, no explanations.',
       '',
       `User request: ${prompt}`,
@@ -223,6 +210,136 @@ app.post('/api/generate-form', async (req, res) => {
       error: 'Failed to generate form', 
       details: error.message 
     });
+  }
+});
+
+// Generate Google Apps Script for Google Forms endpoint
+app.post('/api/generate-apps-script', async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+    const systemPrompt = [
+      'You are a Google Apps Script expert. Based on the user\'s request, generate a complete Google Apps Script that creates a Google Form with the requested fields and settings.',
+      '',
+      'Requirements:',
+      '- Output only the Apps Script code, in a markdown code block labeled javascript.',
+      '- The script should create a new Google Form with the requested fields, types, and options.',
+      '- Use best practices for Google Apps Script.',
+      '- Do not include any explanations, only the code.',
+      '',
+      `User request: ${prompt}`,
+      '',
+      'Generate the Apps Script code:'
+    ].join('\n');
+    const result = await ai.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: systemPrompt
+    });
+    const responseText = result.text;
+    // Extract code block
+    const codeBlock = responseText.match(/```(?:javascript|js)([\s\S]*?)```/i);
+    const scriptCode = codeBlock ? codeBlock[1].trim() : responseText.trim();
+    res.json({
+      success: true,
+      script: scriptCode,
+      prompt
+    });
+  } catch (error) {
+    console.error('Error generating Apps Script:', error);
+    res.status(500).json({
+      error: 'Failed to generate Apps Script',
+      details: error.message
+    });
+  }
+});
+
+// --- Google OAuth2 and Forms API Integration ---
+// In-memory token storage for demo (replace with DB/session for production)
+let oauth2Tokens = null;
+let userTokens = {};
+
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  'http://localhost:3000/oauth2callback'
+);
+const SCOPES = [
+  'https://www.googleapis.com/auth/forms.body',
+  'https://www.googleapis.com/auth/forms.responses.readonly',
+  'https://www.googleapis.com/auth/drive.file',
+  'openid',
+  'email',
+  'profile'
+];
+
+// Endpoint to create a Google Form using the Forms API
+app.post('/api/create-google-form', async (req, res) => {
+  try {
+    if (!oauth2Tokens) {
+      return res.status(401).json({ error: 'User not authenticated with Google.' });
+    }
+    const { form } = req.body; // Expecting a JSON structure for the form
+    if (!form) {
+      return res.status(400).json({ error: 'Form structure is required.' });
+    }
+    oauth2Client.setCredentials(oauth2Tokens);
+    const forms = google.forms({ version: 'v1', auth: oauth2Client });
+    // Step 1: Create the form with only the title
+    const createRes = await forms.forms.create({
+      requestBody: {
+        info: {
+          title: form.title || 'Untitled Form',
+          documentTitle: form.title || 'Untitled Form',
+        }
+      }
+    });
+    const formId = createRes.data.formId;
+    // Step 2: Add items/questions using batchUpdate
+    if (form.items && form.items.length > 0) {
+      const requests = form.items.map((item, idx) => ({
+        createItem: {
+          item,
+          location: { index: idx }
+        }
+      }));
+      await forms.forms.batchUpdate({
+        formId,
+        requestBody: { requests }
+      });
+    }
+    // Get the form to retrieve the responderUri
+    const getRes = await forms.forms.get({ formId });
+    res.json({ success: true, formId, formUrl: getRes.data.responderUri });
+  } catch (error) {
+    console.error('Error creating Google Form:', error);
+    res.status(500).json({ error: 'Failed to create Google Form', details: error.message });
+  }
+});
+
+// Step 1: Redirect user to Google for consent
+app.get('/auth/google', (req, res) => {
+  const url = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: SCOPES,
+    prompt: 'consent',
+  });
+  res.redirect(url);
+});
+
+// Step 2: Handle OAuth2 callback
+app.get('/oauth2callback', async (req, res) => {
+  const code = req.query.code;
+  if (!code) return res.status(400).send('Missing code');
+  try {
+    const { tokens } = await oauth2Client.getToken(code);
+    // For demo, store in memory by a fake user id (in production, use session/user id)
+    userTokens['demo'] = tokens;
+    oauth2Tokens = tokens; // Store the tokens in the in-memory variable
+    res.redirect('http://localhost:5174/');
+  } catch (err) {
+    res.status(500).send('OAuth error: ' + err.message);
   }
 });
 

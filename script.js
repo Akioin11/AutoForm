@@ -49,6 +49,15 @@ class AutoFormGenerator {
                 this.closeFullscreen();
             }
         });
+        // Google Sign-In and Google Form creation
+        this.googleSignInBtn = document.getElementById('googleSignInBtn');
+        this.createGoogleFormBtn = document.getElementById('createGoogleFormBtn');
+        if (this.googleSignInBtn) {
+            this.googleSignInBtn.addEventListener('click', () => this.handleGoogleSignIn());
+        }
+        if (this.createGoogleFormBtn) {
+            this.createGoogleFormBtn.addEventListener('click', () => this.createGoogleForm());
+        }
     }
 
     async generateForm() {
@@ -189,6 +198,7 @@ class AutoFormGenerator {
 
     enableControls() {
         this.downloadBtn.disabled = false;
+        if (this.createGoogleFormBtn) this.createGoogleFormBtn.disabled = false;
     }
 
     openFullscreen() {
@@ -272,6 +282,88 @@ class AutoFormGenerator {
     </script>
 </body>
 </html>`;
+    }
+
+    async handleGoogleSignIn() {
+        // Redirect to backend OAuth2 endpoint (always use backend port)
+        window.location.href = 'http://localhost:3000/auth/google';
+    }
+
+    async createGoogleForm() {
+        if (!this.currentFormHTML) {
+            alert('Please generate a form first.');
+            return;
+        }
+        // Map the current form to a minimal Google Forms API structure
+        const formJson = this.mapFormToGoogleFormsApi();
+        if (!formJson) {
+            alert('Unable to map form to Google Forms API structure.');
+            return;
+        }
+        this.createGoogleFormBtn.disabled = true;
+        this.createGoogleFormBtn.querySelector('.btn-text').textContent = 'Creating...';
+        try {
+            const response = await fetch('/api/create-google-form', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ form: formJson })
+            });
+            const data = await response.json();
+            if (data.success && data.formUrl) {
+                window.open(data.formUrl, '_blank');
+            } else {
+                alert('Failed to create Google Form: ' + (data.error || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Error creating Google Form: ' + err.message);
+        } finally {
+            this.createGoogleFormBtn.disabled = false;
+            this.createGoogleFormBtn.querySelector('.btn-text').textContent = 'Create Google Form';
+        }
+    }
+
+    mapFormToGoogleFormsApi() {
+        // Very basic mapping: extract title and fields from the generated HTML
+        // This can be improved for more complex forms
+        let title = 'AI Generated Form';
+        let items = [];
+        // Try to extract a form title from the summary or prompt
+        if (this.formSummary && this.formSummary.textContent) {
+            title = this.formSummary.textContent.trim();
+        }
+        // Extract fields (input, select, textarea)
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = this.currentFormHTML;
+        const inputs = tempDiv.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            let item = null;
+            if (input.type === 'text' || input.tagName === 'TEXTAREA') {
+                item = {
+                    title: input.placeholder || input.name || 'Text',
+                    questionItem: {
+                        question: {
+                            textQuestion: { paragraph: input.tagName === 'TEXTAREA' }
+                        }
+                    }
+                };
+            } else if (input.type === 'email') {
+                item = {
+                    title: input.placeholder || input.name || 'Email',
+                    questionItem: {
+                        question: {
+                            textQuestion: { paragraph: false }
+                        }
+                    }
+                };
+            } else if (input.type === 'checkbox' || input.type === 'radio') {
+                // Group by name for options
+                // (Not implemented in this minimal version)
+            }
+            if (item) items.push(item);
+        });
+        // TODO: Add select/options mapping
+        if (items.length === 0) return null;
+        return { title, items };
     }
 }
 
