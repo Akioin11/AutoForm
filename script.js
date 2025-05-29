@@ -22,8 +22,11 @@ class AutoFormGenerator {
         this.fullscreenModal = document.getElementById('fullscreenModal');
         this.fullscreenPreview = document.getElementById('fullscreenPreview');
         this.closeFullscreenBtn = document.getElementById('closeFullscreenBtn');
-        this.formSummary = document.getElementById('formSummary');
-        this.fieldList = document.getElementById('fieldList');
+        this.googleSignInBtn = document.getElementById('googleSignInBtn');
+        this.createGoogleFormBtn = document.getElementById('createGoogleFormBtn');
+        this.googleSignInText = document.getElementById('googleSignInText');
+        this.createGoogleFormText = document.getElementById('createGoogleFormText');
+        this.suggestionList = document.getElementById('suggestionList');
     }
 
     bindEvents() {
@@ -50,8 +53,6 @@ class AutoFormGenerator {
             }
         });
         // Google Sign-In and Google Form creation
-        this.googleSignInBtn = document.getElementById('googleSignInBtn');
-        this.createGoogleFormBtn = document.getElementById('createGoogleFormBtn');
         if (this.googleSignInBtn) {
             this.googleSignInBtn.addEventListener('click', () => this.handleGoogleSignIn());
         }
@@ -83,8 +84,7 @@ class AutoFormGenerator {
             this.currentFormCSS = data.css;
             this.displayForm(data.html, data.css);
             this.enableControls();
-            this.updateFormSummary(prompt, data.html);
-            this.updateFieldList(data.html);
+            this.showSuggestions(prompt, data.html);
         } catch (error) {
             console.error('Error generating form:', error);
             alert('Error generating form: ' + error.message);
@@ -93,31 +93,32 @@ class AutoFormGenerator {
         }
     }
 
-    updateFormSummary(prompt, html) {
-        // Try to extract a summary from the prompt
-        let summary = '';
-        if (prompt) {
-            summary = prompt.charAt(0).toUpperCase() + prompt.slice(1);
+    showSuggestions(prompt, html) {
+        if (!this.suggestionList) return;
+        // Suggest possible improvements or iterations based on the prompt and form
+        const suggestions = [];
+        // Example: If the form has no file upload, suggest adding one
+        if (!/type=["']?file["']?/i.test(html)) {
+            suggestions.push('Add a file upload field (e.g., for attachments or resumes).');
         }
-        this.formSummary.innerHTML = summary;
-    }
-
-    updateFieldList(html) {
-        // Extract field names from HTML
-        const fieldMatches = html.match(/<label[^>]*>(.*?)<\/label>|placeholder=["']([^"']+)["']/gi);
-        let fields = [];
-        if (fieldMatches && fieldMatches.length > 0) {
-            fields = fieldMatches.map(m => {
-                const label = m.match(/<label[^>]*>(.*?)<\/label>/i);
-                if (label) return label[1];
-                const ph = m.match(/placeholder=["']([^"']+)["']/i);
-                if (ph) return ph[1];
-                return null;
-            }).filter(Boolean);
+        // Suggest adding validation if not present
+        if (!/required/i.test(html)) {
+            suggestions.push('Add required validation to important fields.');
         }
-        this.fieldList.innerHTML = fields.length > 0
-            ? fields.map(f => `<li>${f}</li>`).join('')
-            : '<li style="color:#aaa">No fields detected</li>';
+        // Suggest adding a confirmation message
+        suggestions.push('Add a confirmation message after form submission.');
+        // Suggest customizing the submit button text
+        if (!/type=["']?submit["']?[^>]*value=["']?[^"'>]+["']?/i.test(html)) {
+            suggestions.push('Customize the submit button text to match the form purpose.');
+        }
+        // Suggest using select/radio for options if only text fields are present
+        if (!/<select|type=["']?radio["']?/i.test(html)) {
+            suggestions.push('Add dropdowns or radio buttons for fields with predefined options.');
+        }
+        // Suggest adding help text or tooltips
+        suggestions.push('Add help text or tooltips for complex fields.');
+        // Show suggestions
+        this.suggestionList.innerHTML = suggestions.map(s => `<li>${s}</li>`).join('');
     }
 
     setLoading(loading) {
@@ -199,6 +200,8 @@ class AutoFormGenerator {
     enableControls() {
         this.downloadBtn.disabled = false;
         if (this.createGoogleFormBtn) this.createGoogleFormBtn.disabled = false;
+        // Optionally, update Google sign-in UI if already signed in
+        // this.setGoogleSignedInUI();
     }
 
     openFullscreen() {
@@ -285,8 +288,33 @@ class AutoFormGenerator {
     }
 
     async handleGoogleSignIn() {
-        // Redirect to backend OAuth2 endpoint (always use backend port)
-        window.location.href = 'http://localhost:3000/auth/google';
+        this.googleSignInBtn.disabled = true;
+        this.googleSignInText.textContent = 'Signing in...';
+        // Open Google OAuth in a popup window
+        const popup = window.open('http://localhost:3000/auth/google', 'googleSignInPopup', 'width=500,height=600');
+        if (!popup) {
+            alert('Popup blocked! Please allow popups for this site.');
+            this.googleSignInBtn.disabled = false;
+            this.googleSignInText.textContent = 'Sign in with Google';
+            return;
+        }
+        // Listen for postMessage from popup
+        const onMessage = (event) => {
+            if (event.origin !== 'http://localhost:3000' && event.origin !== window.location.origin) return;
+            if (event.data && event.data.type === 'google-auth-success') {
+                this.setGoogleSignedInUI();
+                window.removeEventListener('message', onMessage);
+                try { popup.close(); } catch (e) {}
+            }
+        };
+        window.addEventListener('message', onMessage);
+    }
+
+    // Call this after successful sign-in (for demo, just enable button)
+    setGoogleSignedInUI() {
+        this.googleSignInBtn.disabled = true;
+        this.googleSignInText.textContent = 'Signed in with Google';
+        this.createGoogleFormBtn.disabled = false;
     }
 
     async createGoogleForm() {
@@ -294,14 +322,16 @@ class AutoFormGenerator {
             alert('Please generate a form first.');
             return;
         }
+        this.createGoogleFormBtn.disabled = true;
+        this.createGoogleFormText.textContent = 'Creating...';
         // Map the current form to a minimal Google Forms API structure
         const formJson = this.mapFormToGoogleFormsApi();
         if (!formJson) {
             alert('Unable to map form to Google Forms API structure.');
+            this.createGoogleFormBtn.disabled = false;
+            this.createGoogleFormText.textContent = 'Create Google Form';
             return;
         }
-        this.createGoogleFormBtn.disabled = true;
-        this.createGoogleFormBtn.querySelector('.btn-text').textContent = 'Creating...';
         try {
             const response = await fetch('/api/create-google-form', {
                 method: 'POST',
@@ -310,15 +340,17 @@ class AutoFormGenerator {
             });
             const data = await response.json();
             if (data.success && data.formUrl) {
+                this.createGoogleFormText.textContent = 'Open Google Form';
                 window.open(data.formUrl, '_blank');
             } else {
+                this.createGoogleFormText.textContent = 'Create Google Form';
                 alert('Failed to create Google Form: ' + (data.error || 'Unknown error'));
             }
         } catch (err) {
+            this.createGoogleFormText.textContent = 'Create Google Form';
             alert('Error creating Google Form: ' + err.message);
         } finally {
             this.createGoogleFormBtn.disabled = false;
-            this.createGoogleFormBtn.querySelector('.btn-text').textContent = 'Create Google Form';
         }
     }
 
@@ -337,6 +369,10 @@ class AutoFormGenerator {
         const inputs = tempDiv.querySelectorAll('input, select, textarea');
         inputs.forEach(input => {
             let item = null;
+            if (input.type === 'file') {
+                // Google Forms API does not support file upload fields
+                return; // skip file upload fields
+            }
             if (input.type === 'text' || input.tagName === 'TEXTAREA') {
                 item = {
                     title: input.placeholder || input.name || 'Text',

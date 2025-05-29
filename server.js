@@ -337,7 +337,20 @@ app.get('/oauth2callback', async (req, res) => {
     // For demo, store in memory by a fake user id (in production, use session/user id)
     userTokens['demo'] = tokens;
     oauth2Tokens = tokens; // Store the tokens in the in-memory variable
-    res.redirect('http://localhost:5174/');
+    // Serve a minimal HTML page that notifies the opener and closes the popup
+    res.send(`<!DOCTYPE html>
+<html><body>
+<script>
+  if (window.opener) {
+    window.opener.postMessage({ type: 'google-auth-success' }, '*');
+    window.close();
+  } else {
+    // If not opened as a popup, fallback to redirect
+    window.location = 'http://localhost:5173/';
+  }
+</script>
+<p>Signed in! You can close this window.</p>
+</body></html>`);
   } catch (err) {
     res.status(500).send('OAuth error: ' + err.message);
   }
